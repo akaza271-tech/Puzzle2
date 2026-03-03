@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Jigsaw | Fixed Visuals</title>
+    <style>
+        :root { --neon: #00f2ff; --bg: #05070a; --panel: #0f172a; --magic: #ffd700; --win: #39ff14; --error: #ff3131; }
+        * { touch-action: manipulation; user-select: none; box-sizing: border-box; }
+        body { margin: 0; background: #000; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; color: white; }
+        
+        #gameWrapper { position: relative; width: 360px; height: 640px; background: var(--bg); border: 2px solid #1e293b; border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* Start UI */
+        #uploadUI { position: absolute; inset: 0; background: var(--bg); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; transition: 0.5s; }
+        .game-title { font-size: 32px; font-weight: 900; color: var(--neon); text-shadow: 0 0 15px var(--neon); margin-bottom: 5px; }
+        
+        .level-group { display: flex; flex-direction: column; gap: 8px; width: 100%; margin: 20px 0; }
+        .lvl-btn { padding: 12px; border: 1px solid #1e293b; background: #111; color: #64748b; cursor: pointer; border-radius: 8px; font-weight: bold; }
+        .lvl-btn.active { border-color: var(--neon); color: var(--neon); background: var(--panel); }
+
+        .btn-ui { width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; border: 1px solid var(--neon); font-size: 14px; text-align: center; }
+        #uploadBtn { background: var(--panel); color: var(--neon); display: block; }
+        #generateBtn { background: var(--neon); color: #000; display: none; margin-top: 10px; border: none; }
+        #generateBtn.visible { display: block; }
+
+        /* Puzzle Board */
+        .header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; }
+        #mainArea { 
+            width: 330px; height: 385px; margin: 10px auto; 
+            display: grid; border: 2px solid #1e293b; position: relative;
+            background-color: #0c111d; overflow: hidden;
+        }
+        
+        /* Fixed Background logic */
+        .ghost-guide { 
+            position: absolute; inset: 0; 
+            background-image: var(--img-url); 
+            background-size: 330px 385px !important; 
+            background-repeat: no-repeat;
+            opacity: 0.12; z-index: 0; pointer-events: none; 
+        }
+
+        .slot { border: 0.1px solid rgba(255,255,255,0.05); position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; }
+
+        /* Tray */
+        #selectionArea { 
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 180px;
+            background: var(--panel); border-top: 2px solid var(--neon); 
+            padding: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px;
+            overflow-y: auto; transition: height 0.4s; z-index: 150;
+        }
+        #selectionArea.full-tray { height: 90%; }
+
+        /* Piece logic */
+        .piece { 
+            background-image: var(--img-url); 
+            background-size: 330px 385px !important; 
+            background-repeat: no-repeat;
+            border: 1px solid var(--neon); 
+            cursor: pointer; flex-shrink: 0; 
+        }
+        .piece.selected { border: 2px solid #fff; box-shadow: 0 0 12px var(--neon); transform: scale(1.05); z-index: 160; }
+        .piece.placed { width: 100% !important; height: 100% !important; border: none !important; border-radius: 0 !important; }
+        .piece.wrong-spot { border: 2px solid var(--error) !important; box-shadow: inset 0 0 10px var(--error); }
+
+        .btn-magic { background: var(--magic); color: #000; border: none; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 900; }
+        .btn-expand { background: var(--neon); color: #000; font-weight: 900; width: 100%; border: none; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 300; }
+    </style>
+</head>
+<body>
+
+<div id="gameWrapper">
+    <div id="uploadUI">
+        <div class="game-title">NEON JIGSAW</div>
+        <p style="color:#94a3b8; font-size: 12px;" id="statusMsg">Upload image to start</p>
+        
+        <div class="level-group">
+            <button class="lvl-btn" onclick="setLevel(6,6,this)">NOOB (36)</button>
+            <button class="lvl-btn active" onclick="setLevel(6,7,this)">MEDIUM (42)</button>
+            <button class="lvl-btn" onclick="setLevel(6,9,this)">PRO (54)</button>
+        </div>
+
+        <label class="btn-ui" id="uploadBtn" for="fileInput">CHOOSE IMAGE</label>
+        <input type="file" id="fileInput" accept="image/*" style="display:none">
+        <button class="btn-ui" id="generateBtn" onclick="startGame()">GENERATE PUZZLE</button>
+    </div>
+
+    <div class="header">
+        <button id="magicBtn" class="btn-magic" onclick="magicHint()">MAGIC PIECE (3)</button>
+        <div id="timer" style="font-family:monospace; font-size: 18px;">00:00</div>
+        <button onclick="location.reload()" style="background:none; border:none; color:#475569; font-size:10px;">RESET</button>
+    </div>
+    
+    <div id="mainArea"><div class="ghost-guide" id="bgGuide"></div></div>
+    <div id="notif" style="text-align:center; font-size:11px; color:var(--neon); padding:5px; font-weight: bold;">STANDBY</div>
+
+    <div id="selectionArea">
+        <button id="trayToggle" class="btn-expand" onclick="toggleTray()">EXPAND TRAY ↑</button>
+    </div>
+
+    <div id="winOverlay" style="display:none" class="overlay">
+        <h1 style="color:var(--win)">LEVEL CLEARED</h1>
+        <p id="finalMsg" style="margin-bottom: 20px;"></p>
+        <button class="btn-ui" style="width:200px; background:var(--neon); color:#000" onclick="location.reload()">PLAY AGAIN</button>
+    </div>
+</div>
+
+<script>
+    let selectedPiece = null, cols = 6, rows = 7, totalPieces = 42;
+    let boardState = [], seconds = 0, timerInterval, magicLeft = 3;
+    let rawImg = "";
+
+    function setLevel(c, r, btn) {
+        cols = c; rows = r; totalPieces = c * r;
+        document.querySelectorAll('.lvl-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    document.getElementById('fileInput').onchange = (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = () => {
+            // Verify image is valid before proceeding
+            const img = new Image();
+            img.onload = () => {
+                rawImg = reader.result;
+                document.documentElement.style.setProperty('--img-url', `url('${rawImg}')`);
+                document.getElementById('generateBtn').classList.add('visible');
+                document.getElementById('statusMsg').innerText = "IMAGE READY ✓";
+                document.getElementById('statusMsg').style.color = "var(--win)";
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    function startGame() {
+        if(!rawImg) return;
+        document.getElementById('uploadUI').style.opacity = '0';
+        setTimeout(() => {
+            document.getElementById('uploadUI').style.display = 'none';
+            initBoard();
+        }, 500);
+    }
+
+    function initBoard() {
+        const mainArea = document.getElementById('mainArea');
+        mainArea.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        mainArea.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+        boardState = Array(totalPieces).fill(null);
+        
+        const pW = 330 / cols; const pH = 385 / rows;
+
+        for(let i=0; i < totalPieces; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'slot'; slot.dataset.slotIdx = i;
+            slot.onclick = () => {
+                if (!selectedPiece || boardState[i] !== null) return;
+                placePiece(slot, i);
+            };
+            mainArea.appendChild(slot);
+        }
+
+        const tray = document.getElementById('selectionArea');
+        for (let i = 0; i < totalPieces; i++) {
+            const p = document.createElement('div');
+            p.className = 'piece'; p.id = 'piece-' + i;
+            p.dataset.correctIdx = i;
+            p.style.width = (pW * 0.8) + 'px'; 
+            p.style.height = (pH * 0.8) + 'px';
+            p.style.backgroundPosition = `-${(i % cols) * pW}px -${Math.floor(i / cols) * pH}px`;
+            p.onclick = (e) => {
+                e.stopPropagation();
+                if(p.classList.contains('placed')) {
+                    removePiece(p);
+                } else {
+                    if (selectedPiece) selectedPiece.classList.remove('selected');
+                    selectedPiece = p; p.classList.add('selected');
+                    tray.classList.remove('full-tray');
+                }
+            };
+            tray.appendChild(p);
+        }
+        shuffleTray();
+        startTimer();
+    }
+
+    function placePiece(slot, idx) {
+        const p = selectedPiece;
+        p.classList.remove('selected');
+        p.classList.add('placed');
+        p.classList.toggle('wrong-spot', parseInt(p.dataset.correctIdx) !== idx);
+        slot.appendChild(p);
+        boardState[idx] = parseInt(p.dataset.correctIdx);
+        selectedPiece = null;
+        updateStatus();
+    }
+
+    function removePiece(p) {
+        boardState[p.parentElement.dataset.slotIdx] = null;
+        p.classList.remove('placed', 'wrong-spot');
+        document.getElementById('selectionArea').appendChild(p);
+        updateStatus();
+    }
+
+    function updateStatus() {
+        const placed = boardState.filter(v => v !== null).length;
+        const allCorrect = boardState.every((v, i) => v === i);
+        document.getElementById('notif').innerText = `TILES: ${placed} / ${totalPieces}`;
+        
+        if (placed === totalPieces && allCorrect) {
+            clearInterval(timerInterval);
+            document.getElementById('bgGuide').style.opacity = "1";
+            setTimeout(() => {
+                document.getElementById('winOverlay').style.display = 'flex';
+                document.getElementById('finalMsg').innerText = "Solved in: " + document.getElementById('timer').innerText;
+            }, 600);
+        }
+    }
+
+    function magicHint() {
+        if (magicLeft <= 0) return;
+        let tIdx = boardState.findIndex((v, i) => v !== i);
+        if(tIdx !== -1) {
+            const tPiece = document.getElementById('piece-' + tIdx);
+            if(tPiece.parentElement.classList.contains('slot')) {
+                boardState[tPiece.parentElement.dataset.slotIdx] = null;
+            }
+            selectedPiece = tPiece;
+            placePiece(document.querySelectorAll('.slot')[tIdx], tIdx);
+            magicLeft--;
+            document.getElementById('magicBtn').innerText = `MAGIC PIECE (${magicLeft})`;
+        }
+    }
+
+    function shuffleTray() {
+        const tray = document.getElementById('selectionArea');
+        for (let i = tray.children.length; i >= 1; i--) {
+            tray.appendChild(tray.children[Math.random() * i | 0]);
+        }
+    }
+
+    function toggleTray() {
+        const tray = document.getElementById('selectionArea');
+        tray.classList.toggle('full-tray');
+        document.getElementById('trayToggle').innerText = tray.classList.contains('full-tray') ? "CLOSE TRAY ↓" : "EXPAND TRAY ↑";
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            seconds++;
+            let m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            let s = (seconds % 60).toString().padStart(2, '0');
+            document.getElementById('timer').innerText = `${m}:${s}`;
+        }, 1000);
+    }
+</script>
+</body>
+</html>
