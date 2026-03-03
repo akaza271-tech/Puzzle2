@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Jigsaw | Force Render</title>
+    <title>Neon Jigsaw HD</title>
     <style>
         :root { --neon: #00f2ff; --bg: #05070a; --panel: #0f172a; --magic: #ffd700; --win: #39ff14; --error: #ff3131; }
         * { touch-action: manipulation; user-select: none; box-sizing: border-box; }
@@ -11,8 +11,8 @@
         
         #gameWrapper { position: relative; width: 360px; height: 640px; background: var(--bg); border: 2px solid #1e293b; border-radius: 15px; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* Start UI */
-        #uploadUI { position: absolute; inset: 0; background: var(--bg); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; }
+        /* Start Screen */
+        #uploadUI { position: absolute; inset: 0; background: var(--bg); z-index: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; }
         .game-title { font-size: 32px; font-weight: 900; color: var(--neon); text-shadow: 0 0 15px var(--neon); margin-bottom: 10px; }
         
         .level-group { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 20px; }
@@ -24,43 +24,44 @@
         #generateBtn { background: var(--neon); color: #000; display: none; margin-top: 10px; border: none; }
         #generateBtn.visible { display: block; }
 
-        /* Game Elements */
-        .header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; }
+        /* Board */
+        .header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; z-index: 10; }
         #mainArea { 
             width: 330px; height: 385px; margin: 10px auto; 
             display: grid; border: 2px solid #1e293b; position: relative;
-            background-color: #0c111d;
+            background-color: #0c111d; z-index: 5;
         }
         
-        .ghost-guide { 
-            position: absolute; inset: 0; 
-            background-size: 330px 385px !important; 
-            opacity: 0.15; z-index: 0; pointer-events: none; 
-        }
-
+        .ghost-guide { position: absolute; inset: 0; opacity: 0.15; z-index: 0; pointer-events: none; background-size: 330px 385px !important; }
         .slot { border: 0.1px solid rgba(255,255,255,0.1); position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; }
 
+        /* FIXED TRAY SYSTEM */
         #selectionArea { 
             position: absolute; bottom: 0; left: 0; width: 100%; height: 180px;
             background: var(--panel); border-top: 2px solid var(--neon); 
-            padding: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px;
-            overflow-y: auto; z-index: 150;
+            padding: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+            overflow-y: auto; z-index: 100; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        #selectionArea.full-tray { height: 90%; }
+        
+        /* Full Tray State */
+        #selectionArea.full-tray { height: 100%; padding-top: 60px; }
 
-        .piece { 
-            background-size: 330px 385px !important; 
-            background-repeat: no-repeat !important;
-            border: 1px solid var(--neon); 
-            cursor: pointer; flex-shrink: 0; 
-        }
-        .piece.selected { border: 2px solid #fff; box-shadow: 0 0 12px var(--neon); }
-        .piece.placed { width: 100% !important; height: 100% !important; border: none !important; }
+        .piece { border: 1px solid var(--neon); cursor: pointer; flex-shrink: 0; background-size: 330px 385px !important; transition: transform 0.1s; }
+        .piece.selected { border: 2px solid #fff; box-shadow: 0 0 15px var(--neon); transform: scale(1.1); z-index: 101; }
+        .piece.placed { width: 100% !important; height: 100% !important; border: none !important; margin: 0 !important; }
         .piece.wrong-spot { border: 2px solid var(--error) !important; box-shadow: inset 0 0 8px var(--error); }
 
         .btn-magic { background: var(--magic); color: #000; border: none; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 900; }
-        .btn-expand { background: var(--neon); color: #000; font-weight: 900; width: 100%; border: none; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
-        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 300; }
+        
+        /* Fixed Toggle Button */
+        #trayToggle { 
+            position: sticky; top: -5px; width: 100%; 
+            background: var(--neon); color: #000; font-weight: 900; 
+            border: none; padding: 12px; border-radius: 6px; 
+            margin-bottom: 15px; z-index: 110; cursor: pointer;
+        }
+        
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 600; }
     </style>
 </head>
 <body>
@@ -82,18 +83,16 @@
     </div>
 
     <div class="header">
-        <button id="magicBtn" class="btn-magic" onclick="magicHint()">MAGIC HINT (3)</button>
+        <button id="magicBtn" class="btn-magic" onclick="magicHint()">HINT (3)</button>
         <div id="timer" style="font-family:monospace; font-size: 18px;">00:00</div>
-        <button onclick="location.reload()" style="background:none; border:none; color:#475569; font-size:10px;">RESET</button>
+        <button onclick="location.reload()" style="background:none; border:none; color:#475569; font-size:10px; font-weight: bold;">RESET</button>
     </div>
     
-    <div id="mainArea">
-        <div class="ghost-guide" id="bgGuide"></div>
-    </div>
+    <div id="mainArea"><div class="ghost-guide" id="bgGuide"></div></div>
     <div id="notif" style="text-align:center; font-size:11px; color:var(--neon); padding:5px; font-weight: bold;">STANDBY</div>
 
     <div id="selectionArea">
-        <button id="trayToggle" class="btn-expand" onclick="toggleTray()">EXPAND TRAY ↑</button>
+        <button id="trayToggle" onclick="toggleTray()">EXPAND TRAY ↑</button>
     </div>
 
     <div id="winOverlay" style="display:none" class="overlay">
@@ -105,7 +104,7 @@
 <script>
     let selectedPiece = null, cols = 6, rows = 7, total = 42;
     let boardState = [], seconds = 0, timer, magicLeft = 3;
-    let imgStore = "";
+    let hdImg = ""; 
 
     function setLvl(c, r, btn) {
         cols = c; rows = r; total = c * r;
@@ -117,9 +116,9 @@
         const file = e.target.files[0];
         const reader = new FileReader();
         reader.onload = (event) => {
-            imgStore = event.target.result;
+            hdImg = event.target.result; // Original quality
             document.getElementById('generateBtn').classList.add('visible');
-            document.getElementById('uploadBtn').innerText = "IMAGE LOADED ✓";
+            document.getElementById('uploadBtn').innerText = "IMAGE READY ✓";
         };
         reader.readAsDataURL(file);
     };
@@ -129,11 +128,9 @@
         const main = document.getElementById('mainArea');
         const guide = document.getElementById('bgGuide');
         
-        // Force background guide image
-        guide.style.backgroundImage = "url('" + imgStore + "')";
-        
-        main.style.gridTemplateColumns = "repeat(" + cols + ", 1fr)";
-        main.style.gridTemplateRows = "repeat(" + rows + ", 1fr)";
+        guide.style.backgroundImage = `url('${hdImg}')`;
+        main.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+        main.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
         boardState = Array(total).fill(null);
         
         const pW = 330 / cols; const pH = 385 / rows;
@@ -160,12 +157,10 @@
             const p = document.createElement('div');
             p.className = 'piece'; p.id = 'p-' + i;
             p.dataset.correct = i;
-            p.style.width = (pW * 0.8) + 'px'; 
-            p.style.height = (pH * 0.8) + 'px';
-            
-            // DIRECT IMAGE INJECTION
-            p.style.backgroundImage = "url('" + imgStore + "')";
-            p.style.backgroundPosition = "-" + ((i % cols) * pW) + "px -" + (Math.floor(i / cols) * pH) + "px";
+            p.style.width = (pW * 0.85) + 'px'; 
+            p.style.height = (pH * 0.85) + 'px';
+            p.style.backgroundImage = `url('${hdImg}')`;
+            p.style.backgroundPosition = `-${(i % cols) * pW}px -${Math.floor(i / cols) * pH}px`;
             
             p.onclick = (e) => {
                 e.stopPropagation();
@@ -177,15 +172,15 @@
                 } else {
                     if (selectedPiece) selectedPiece.classList.remove('selected');
                     selectedPiece = p; p.classList.add('selected');
+                    // auto-close tray for better visibility
+                    tray.classList.remove('full-tray');
+                    document.getElementById('trayToggle').innerText = "EXPAND TRAY ↑";
                 }
             };
             tray.appendChild(p);
         }
         
-        // Shuffle Tray
-        for (let i = tray.children.length; i >= 1; i--) {
-            tray.appendChild(tray.children[Math.random() * i | 0]);
-        }
+        shuffleTray();
 
         timer = setInterval(() => {
             seconds++;
@@ -214,7 +209,7 @@
     function checkWin() {
         const placed = boardState.filter(v => v !== null).length;
         const allCorrect = boardState.every((v, i) => v === i);
-        document.getElementById('notif').innerText = "TILES: " + placed + " / " + total;
+        document.getElementById('notif').innerText = "PROGRESS: " + placed + " / " + total;
         if (placed === total && allCorrect) {
             clearInterval(timer);
             document.getElementById('bgGuide').style.opacity = "1";
@@ -226,6 +221,14 @@
         const tray = document.getElementById('selectionArea');
         tray.classList.toggle('full-tray');
         document.getElementById('trayToggle').innerText = tray.classList.contains('full-tray') ? "CLOSE TRAY ↓" : "EXPAND TRAY ↑";
+    }
+
+    function shuffleTray() {
+        const tray = document.getElementById('selectionArea');
+        for (let i = tray.children.length; i >= 1; i--) {
+            const child = tray.children[Math.random() * i | 0];
+            if(child.id !== 'trayToggle') tray.appendChild(child);
+        }
     }
 </script>
 </body>
